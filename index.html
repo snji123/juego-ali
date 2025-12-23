@@ -23,17 +23,19 @@
       width: 100%;
       max-width: 1080px;
       height: 70vh;
-      margin-top: 10vh; /* lo empuja un poco hacia abajo */
+      margin-top: 10vh;
     }
   </style>
 </head>
 <body>
+  <!-- 🎵 Música retro -->
+  <audio id="bgMusic" src="musica-retro.mp3" autoplay loop></audio>
+
   <canvas id="gameCanvas"></canvas>
   <script>
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
 
-    // Ajustar canvas al tamaño visible
     function resizeCanvas() {
       canvas.width = canvas.clientWidth;
       canvas.height = canvas.clientHeight;
@@ -77,11 +79,12 @@
       }
     };
 
+    // ✅ Maletas en el suelo (nuevas imágenes estáticas)
     const maletasSuelo = {
-      amarillo: "maletaamarilla-corriendo-derecha.png",
-      verde: "maletaverde-corriendo-derecha.png",
-      rojo: "maletaroja-corriendo-derecha.png",
-      azul: "maletaazul-corriendo-derecha.png"
+      amarillo: "maleta-amarilla.png",
+      verde: "maleta-verde.png",
+      rojo: "maleta-roja.png",
+      azul: "maleta-azul.png"
     };
 
     let zonas = {
@@ -96,52 +99,55 @@
     let direccion = "derecha";
     let puntos = 0;
 
+    // ✅ Más maletas en el mapa (8 en total)
     let objetos = [
       { x: 100, y: 100, color: "amarillo" },
       { x: 200, y: 150, color: "verde" },
       { x: 300, y: 200, color: "rojo" },
-      { x: 150, y: 300, color: "azul" }
+      { x: 150, y: 300, color: "azul" },
+      { x: 250, y: 350, color: "amarillo" },
+      { x: 350, y: 400, color: "verde" },
+      { x: 450, y: 250, color: "rojo" },
+      { x: 550, y: 150, color: "azul" }
     ];
 
-    let keys = {};
-    document.addEventListener("keydown", e => keys[e.key] = true);
-    document.addEventListener("keyup", e => keys[e.key] = false);
-
     const playerImg = new Image();
+
+    // ✅ Control táctil para celular
+    canvas.addEventListener("touchstart", function(e) {
+      const touch = e.touches[0];
+      const x = touch.clientX;
+      const y = touch.clientY;
+
+      if (x < canvas.width / 3) {
+        player.x -= 20; // izquierda
+        direccion = "izquierda";
+      } else if (x > (canvas.width * 2) / 3) {
+        player.x += 20; // derecha
+        direccion = "derecha";
+      } else if (y < canvas.height / 3) {
+        player.y -= 20; // arriba
+      } else if (y > (canvas.height * 2) / 3) {
+        player.y += 20; // abajo
+      }
+    });
 
     function update() {
       let moving = false;
 
-      if (keys["ArrowRight"]) {
-        player.x += 5;
-        direccion = "derecha";
-        moving = true;
-      }
-      if (keys["ArrowLeft"]) {
-        player.x -= 5;
-        direccion = "izquierda";
-        moving = true;
-      }
-      if (keys["ArrowUp"]) {
-        player.y -= 5;
-        moving = true;
-      }
-      if (keys["ArrowDown"]) {
-        player.y += 5;
-        moving = true;
-      }
-
+      // Colisión con maletas
       objetos.forEach((obj, i) => {
         if (!maletaActual &&
-            player.x < obj.x + 40 &&
+            player.x < obj.x + 48 &&
             player.x + player.width > obj.x &&
-            player.y < obj.y + 40 &&
+            player.y < obj.y + 48 &&
             player.y + player.height > obj.y) {
           maletaActual = obj.color;
           objetos.splice(i, 1);
         }
       });
 
+      // Entregar maleta
       if (maletaActual) {
         const zona = zonas[maletaActual];
         if (player.x < zona.x + zona.w &&
@@ -153,18 +159,11 @@
         }
       }
 
+      // Actualizar imagen del personaje
       if (maletaActual) {
-        if (moving) {
-          playerImg.src = maletasCargando[maletaActual][direccion];
-        } else {
-          playerImg.src = reposoMaleta[maletaActual];
-        }
+        playerImg.src = reposoMaleta[maletaActual];
       } else {
-        if (moving) {
-          playerImg.src = direccion === "derecha" ? corriendoDerechaImg.src : corriendoIzquierdaImg.src;
-        } else {
-          playerImg.src = reposoImg.src;
-        }
+        playerImg.src = reposoImg.src;
       }
     }
 
@@ -175,7 +174,7 @@
       objetos.forEach(obj => {
         const img = new Image();
         img.src = maletasSuelo[obj.color];
-        ctx.drawImage(img, obj.x, obj.y, 40, 40);
+        ctx.drawImage(img, obj.x, obj.y, 48, 48); // ✅ 20% más grandes
       });
 
       Object.keys(zonas).forEach(color => {
