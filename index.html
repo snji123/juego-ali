@@ -21,14 +21,15 @@
       background-size: cover;
       display: block;
       width: 100%;
-      max-width: 1080px;
+      max-width: 1080px; /* pensado para tu Honor */
       height: 70vh;
-      margin-top: 10vh;
+      margin-top: 10vh; /* un poco más abajo del centro */
+      touch-action: manipulation; /* mejora respuestas táctiles */
     }
   </style>
 </head>
 <body>
-  <!-- 🎵 Música retro -->
+  <!-- Música retro opcional: reemplaza el src si quieres usarla -->
   <audio id="bgMusic" src="musica-retro.mp3" autoplay loop></audio>
 
   <canvas id="gameCanvas"></canvas>
@@ -43,7 +44,7 @@
     window.addEventListener("resize", resizeCanvas);
     resizeCanvas();
 
-    // Imágenes base
+    // Sprites base (sin maleta)
     const reposoImg = new Image();
     reposoImg.src = "reposo.png";
 
@@ -53,6 +54,7 @@
     const corriendoIzquierdaImg = new Image();
     corriendoIzquierdaImg.src = "corriendoizquierda.png";
 
+    // Reposo con maleta
     const reposoMaleta = {
       amarillo: "reposo-maletaamarilla.png",
       verde: "reposo-maletaverde.png",
@@ -60,6 +62,7 @@
       azul: "reposo-maletaazul.png"
     };
 
+    // Corriendo con maleta (dirección)
     const maletasCargando = {
       amarillo: {
         derecha: "maletaamarilla-corriendo-derecha.png",
@@ -79,7 +82,7 @@
       }
     };
 
-    // ✅ Maletas en el suelo (nuevas imágenes estáticas)
+    // Maletas en el suelo (estáticas)
     const maletasSuelo = {
       amarillo: "maleta-amarilla.png",
       verde: "maleta-verde.png",
@@ -87,6 +90,7 @@
       azul: "maleta-azul.png"
     };
 
+    // Contenedores (posiciones relativas a pantalla)
     let zonas = {
       amarillo: { x: canvas.width - 100, y: 50, w: 60, h: 60, img: "contenedoramarillo.png" },
       verde: { x: canvas.width - 100, y: 150, w: 60, h: 60, img: "contenedorverde.png" },
@@ -94,12 +98,15 @@
       azul: { x: canvas.width - 100, y: 350, w: 60, h: 60, img: "contenedorazul.png" }
     };
 
+    // Personaje
     let player = { x: 50, y: 200, width: 50, height: 80 };
+    let playerImg = new Image();
+    let direccion = "derecha"; // "izquierda" | "derecha"
     let maletaActual = null;
-    let direccion = "derecha";
     let puntos = 0;
 
-    // ✅ Más maletas en el mapa (8 en total)
+    // Maletas en el mapa (más cantidad)
+    const MAL_W = 48, MAL_H = 48; // 20% más grandes
     let objetos = [
       { x: 100, y: 100, color: "amarillo" },
       { x: 200, y: 150, color: "verde" },
@@ -111,43 +118,82 @@
       { x: 550, y: 150, color: "azul" }
     ];
 
-    const playerImg = new Image();
+    // Controles táctiles por zonas: izquierda/derecha/arriba/abajo
+    const MOVE_STEP = 20;
+    function handleTouch(x, y) {
+      let moved = false;
+      if (x < canvas.width / 3) {
+        player.x = Math.max(0, player.x - MOVE_STEP);
+        direccion = "izquierda";
+        moved = true;
+      } else if (x > (canvas.width * 2) / 3) {
+        player.x = Math.min(canvas.width - player.width, player.x + MOVE_STEP);
+        direccion = "derecha";
+        moved = true;
+      } else if (y < canvas.height / 3) {
+        player.y = Math.max(0, player.y - MOVE_STEP);
+        moved = true;
+      } else if (y > (canvas.height * 2) / 3) {
+        player.y = Math.min(canvas.height - player.height, player.y + MOVE_STEP);
+        moved = true;
+      }
 
-    // ✅ Control táctil para celular
+      // Actualizar sprite a "corriendo" si se movió
+      if (moved) {
+        if (maletaActual) {
+          playerImg.src = maletasCargando[maletaActual][direccion];
+        } else {
+          playerImg.src = direccion === "derecha" ? corriendoDerechaImg.src : corriendoIzquierdaImg.src;
+        }
+      } else {
+        // sin movimiento → reposo
+        if (maletaActual) {
+          playerImg.src = reposoMaleta[maletaActual];
+        } else {
+          playerImg.src = reposoImg.src;
+        }
+      }
+    }
+
     canvas.addEventListener("touchstart", function(e) {
       const touch = e.touches[0];
-      const x = touch.clientX;
-      const y = touch.clientY;
-
-      if (x < canvas.width / 3) {
-        player.x -= 20; // izquierda
-        direccion = "izquierda";
-      } else if (x > (canvas.width * 2) / 3) {
-        player.x += 20; // derecha
-        direccion = "derecha";
-      } else if (y < canvas.height / 3) {
-        player.y -= 20; // arriba
-      } else if (y > (canvas.height * 2) / 3) {
-        player.y += 20; // abajo
-      }
+      // traducir a coordenadas relativas al canvas
+      const rect = canvas.getBoundingClientRect();
+      const x = touch.clientX - rect.left;
+      const y = touch.clientY - rect.top;
+      handleTouch(x, y);
     });
 
-    function update() {
-      let moving = false;
+    // también permitir arrastrar/slide
+    canvas.addEventListener("touchmove", function(e) {
+      const touch = e.touches[0];
+      const rect = canvas.getBoundingClientRect();
+      const x = touch.clientX - rect.left;
+      const y = touch.clientY - rect.top;
+      handleTouch(x, y);
+    });
 
-      // Colisión con maletas
-      objetos.forEach((obj, i) => {
+    // Inicial: reposo sin maleta
+    playerImg.src = reposoImg.src;
+
+    function update() {
+      // Colisión con maletas en el suelo
+      for (let i = objetos.length - 1; i >= 0; i--) {
+        const obj = objetos[i];
         if (!maletaActual &&
-            player.x < obj.x + 48 &&
+            player.x < obj.x + MAL_W &&
             player.x + player.width > obj.x &&
-            player.y < obj.y + 48 &&
+            player.y < obj.y + MAL_H &&
             player.y + player.height > obj.y) {
+          // recoger maleta
           maletaActual = obj.color;
           objetos.splice(i, 1);
+          // al recoger y no moverse, mostrar reposo con maleta
+          playerImg.src = reposoMaleta[maletaActual];
         }
-      });
+      }
 
-      // Entregar maleta
+      // Entregar maleta en contenedor correspondiente
       if (maletaActual) {
         const zona = zonas[maletaActual];
         if (player.x < zona.x + zona.w &&
@@ -156,27 +202,26 @@
             player.y + player.height > zona.y) {
           puntos += 10;
           maletaActual = null;
+          // tras entregar, si no hay movimiento, reposo sin maleta
+          playerImg.src = reposoImg.src;
         }
-      }
-
-      // Actualizar imagen del personaje
-      if (maletaActual) {
-        playerImg.src = reposoMaleta[maletaActual];
-      } else {
-        playerImg.src = reposoImg.src;
       }
     }
 
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Dibujar personaje
       ctx.drawImage(playerImg, player.x, player.y, player.width, player.height);
 
+      // Dibujar maletas en el suelo (estáticas y más grandes)
       objetos.forEach(obj => {
         const img = new Image();
         img.src = maletasSuelo[obj.color];
-        ctx.drawImage(img, obj.x, obj.y, 48, 48); // ✅ 20% más grandes
+        ctx.drawImage(img, obj.x, obj.y, MAL_W, MAL_H);
       });
 
+      // Dibujar contenedores
       Object.keys(zonas).forEach(color => {
         const z = zonas[color];
         const img = new Image();
@@ -184,6 +229,7 @@
         ctx.drawImage(img, z.x, z.y, z.w, z.h);
       });
 
+      // Puntaje
       ctx.font = "18px Arial";
       ctx.fillStyle = "#fff";
       ctx.fillText("Puntos: " + puntos, 20, 30);
@@ -194,8 +240,17 @@
       draw();
       requestAnimationFrame(gameLoop);
     }
-
     gameLoop();
+
+    // Reajustar posiciones dependientes del tamaño al redimensionar
+    window.addEventListener("resize", () => {
+      zonas = {
+        amarillo: { x: canvas.width - 100, y: 50,  w: 60, h: 60, img: "contenedoramarillo.png" },
+        verde:    { x: canvas.width - 100, y: 150, w: 60, h: 60, img: "contenedorverde.png" },
+        rojo:     { x: canvas.width - 100, y: 250, w: 60, h: 60, img: "contenedorrojo.png" },
+        azul:     { x: canvas.width - 100, y: 350, w: 60, h: 60, img: "contenedorazul.png" }
+      };
+    });
   </script>
 </body>
 </html>
