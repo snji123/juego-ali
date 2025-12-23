@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Juego Indie Aeropuerto</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #000;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      height: 100vh;
+      width: 100vw;
+    }
+    canvas {
+      border: 3px solid #fff;
+      background: url("fondo.png") no-repeat center center;
+      background-size: cover;
+      display: block;
+      width: 100%;
+      max-width: 1080px;
+      height: 70vh;
+      margin-top: 10vh; /* lo empuja un poco hacia abajo */
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    // Ajustar canvas al tamaño visible
+    function resizeCanvas() {
+      canvas.width = canvas.clientWidth;
+      canvas.height = canvas.clientHeight;
+    }
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+
+    // Imágenes base
+    const reposoImg = new Image();
+    reposoImg.src = "reposo.png";
+
+    const corriendoDerechaImg = new Image();
+    corriendoDerechaImg.src = "corriendoderecha.png";
+
+    const corriendoIzquierdaImg = new Image();
+    corriendoIzquierdaImg.src = "corriendoizquierda.png";
+
+    const reposoMaleta = {
+      amarillo: "reposo-maletaamarilla.png",
+      verde: "reposo-maletaverde.png",
+      rojo: "reposo-maletaroja.png",
+      azul: "reposo-maletaazul.png"
+    };
+
+    const maletasCargando = {
+      amarillo: {
+        derecha: "maletaamarilla-corriendo-derecha.png",
+        izquierda: "maletaamarilla-corriendo-izquierda.png"
+      },
+      verde: {
+        derecha: "maletaverde-corriendo-derecha.png",
+        izquierda: "maletaverde-corriendo-izquierda.png"
+      },
+      rojo: {
+        derecha: "maletaroja-corriendo-derecha.png",
+        izquierda: "maletaroja-corriendo-izquierda.png"
+      },
+      azul: {
+        derecha: "maletaazul-corriendo-derecha.png",
+        izquierda: "maletaazul-corriendo-izquierda.png"
+      }
+    };
+
+    const maletasSuelo = {
+      amarillo: "maletaamarilla-corriendo-derecha.png",
+      verde: "maletaverde-corriendo-derecha.png",
+      rojo: "maletaroja-corriendo-derecha.png",
+      azul: "maletaazul-corriendo-derecha.png"
+    };
+
+    let zonas = {
+      amarillo: { x: canvas.width - 100, y: 50, w: 60, h: 60, img: "contenedoramarillo.png" },
+      verde: { x: canvas.width - 100, y: 150, w: 60, h: 60, img: "contenedorverde.png" },
+      rojo: { x: canvas.width - 100, y: 250, w: 60, h: 60, img: "contenedorrojo.png" },
+      azul: { x: canvas.width - 100, y: 350, w: 60, h: 60, img: "contenedorazul.png" }
+    };
+
+    let player = { x: 50, y: 200, width: 50, height: 80 };
+    let maletaActual = null;
+    let direccion = "derecha";
+    let puntos = 0;
+
+    let objetos = [
+      { x: 100, y: 100, color: "amarillo" },
+      { x: 200, y: 150, color: "verde" },
+      { x: 300, y: 200, color: "rojo" },
+      { x: 150, y: 300, color: "azul" }
+    ];
+
+    let keys = {};
+    document.addEventListener("keydown", e => keys[e.key] = true);
+    document.addEventListener("keyup", e => keys[e.key] = false);
+
+    const playerImg = new Image();
+
+    function update() {
+      let moving = false;
+
+      if (keys["ArrowRight"]) {
+        player.x += 5;
+        direccion = "derecha";
+        moving = true;
+      }
+      if (keys["ArrowLeft"]) {
+        player.x -= 5;
+        direccion = "izquierda";
+        moving = true;
+      }
+      if (keys["ArrowUp"]) {
+        player.y -= 5;
+        moving = true;
+      }
+      if (keys["ArrowDown"]) {
+        player.y += 5;
+        moving = true;
+      }
+
+      objetos.forEach((obj, i) => {
+        if (!maletaActual &&
+            player.x < obj.x + 40 &&
+            player.x + player.width > obj.x &&
+            player.y < obj.y + 40 &&
+            player.y + player.height > obj.y) {
+          maletaActual = obj.color;
+          objetos.splice(i, 1);
+        }
+      });
+
+      if (maletaActual) {
+        const zona = zonas[maletaActual];
+        if (player.x < zona.x + zona.w &&
+            player.x + player.width > zona.x &&
+            player.y < zona.y + zona.h &&
+            player.y + player.height > zona.y) {
+          puntos += 10;
+          maletaActual = null;
+        }
+      }
+
+      if (maletaActual) {
+        if (moving) {
+          playerImg.src = maletasCargando[maletaActual][direccion];
+        } else {
+          playerImg.src = reposoMaleta[maletaActual];
+        }
+      } else {
+        if (moving) {
+          playerImg.src = direccion === "derecha" ? corriendoDerechaImg.src : corriendoIzquierdaImg.src;
+        } else {
+          playerImg.src = reposoImg.src;
+        }
+      }
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(playerImg, player.x, player.y, player.width, player.height);
+
+      objetos.forEach(obj => {
+        const img = new Image();
+        img.src = maletasSuelo[obj.color];
+        ctx.drawImage(img, obj.x, obj.y, 40, 40);
+      });
+
+      Object.keys(zonas).forEach(color => {
+        const z = zonas[color];
+        const img = new Image();
+        img.src = z.img;
+        ctx.drawImage(img, z.x, z.y, z.w, z.h);
+      });
+
+      ctx.font = "18px Arial";
+      ctx.fillStyle = "#fff";
+      ctx.fillText("Puntos: " + puntos, 20, 30);
+    }
+
+    function gameLoop() {
+      update();
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+
+    gameLoop();
+  </script>
+</body>
+</html>
